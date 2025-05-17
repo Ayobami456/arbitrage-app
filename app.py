@@ -14,7 +14,6 @@ bot = telegram.Bot(token=bot_token)
 
 previous_pairs = set()
 
-
 def get_all_mexc_prices():
     try:
         response = requests.get("https://api.mexc.com/api/v3/ticker/price").json()
@@ -22,14 +21,12 @@ def get_all_mexc_prices():
     except:
         return {}
 
-
 def get_all_gate_prices():
     try:
         response = requests.get("https://api.gateio.ws/api2/1/tickers").json()
         return {key: float(val['last']) for key, val in response.items()}
     except:
         return {}
-
 
 def get_common_symbols():
     mexc_data = requests.get("https://api.mexc.com/api/v3/exchangeInfo").json()
@@ -48,7 +45,6 @@ def get_common_symbols():
 
     common_keys = set(mexc_map.keys()) & set(gate_map.keys())
     return list(common_keys), mexc_map, gate_map
-
 
 def get_arbitrage_opportunities():
     common_keys, mexc_map, gate_map = get_common_symbols()
@@ -90,17 +86,14 @@ def get_arbitrage_opportunities():
 
     return sorted(data, key=lambda x: float(x["diff"].rstrip("%")))
 
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/data')
 def data():
     opportunities = get_arbitrage_opportunities()
     return jsonify(opportunities)
-
 
 def notify_new_pairs():
     global previous_pairs
@@ -118,7 +111,7 @@ def notify_new_pairs():
             print(f"Error in notifier: {e}")
         time.sleep(60)
 
-
 if __name__ == '__main__':
     threading.Thread(target=notify_new_pairs, daemon=True).start()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
