@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Arbitrage Opportunities</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 80%; margin: auto; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        tr:hover { background-color: #f9f9f9; }
+        caption { font-size: 1.5em; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <table>
+        <caption>Arbitrage Opportunities (Profit &ge; 4%)</caption>
+        <thead>
+            <tr>
+                <th>Symbol</th>
+                <th>MEXC Price</th>
+                <th>Gate.io Price</th>
+                <th>Difference (%)</th>
+                <th>Opportunity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if opportunities %}
+                {% for op in opportunities %}
+                <tr>
+                    <td>{{ op.symbol }}</td>
+                    <td>{{ op.mexc }}</td>
+                    <td>{{ op.gate }}</td>
+                    <td>{{ op.diff }}</td>
+                    <td>{{ op.opportunity }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5">No arbitrage opportunities found.</td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</body>
+</html>
