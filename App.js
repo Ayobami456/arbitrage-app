@@ -2,16 +2,36 @@ import React, { useEffect, useState } from 'react';
 import * as LitJsSdk from '@lit-protocol/lit-node-client';
 import { LIT_NETWORK } from '@lit-protocol/constants';
 import { ethers } from 'ethers';
-import Web3Modal from 'web3modal';
+
+// Import Web3Modal from Reown's new package
+import { Web3Modal } from '@web3modal/react';
+import { EthereumClient, w3mConnectors, w3mProvider } from '@web3modal/ethereum';
+import { configureChains, createClient, WagmiConfig } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+
+// Your Reown Project ID
+const projectId = "c6adac7c1737f9e1707693a7812e9632";
+
+// Configure chains and providers for wagmi and Web3Modal
+const chains = [mainnet];
+const { provider } = configureChains(chains, [w3mProvider({ projectId })]);
+
+// Create wagmi client with Web3Modal connectors
+const wagmiClient = createClient({
+  autoConnect: true,
+  connectors: w3mConnectors({ projectId, chains }),
+  provider,
+});
+
+// Create Ethereum client for Web3Modal React
+const ethereumClient = new EthereumClient(wagmiClient, chains);
 
 const GATED_TOKEN_CONTRACT = "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e"; // Example: Doodles NFT contract on Ethereum mainnet
-const CHAIN_ID = 1; // Ethereum mainnet
 
 const App = () => {
   const [client, setClient] = useState(null);
   const [provider, setProvider] = useState(null);
   const [address, setAddress] = useState("");
-  const [encryptedContent, setEncryptedContent] = useState(null);
   const [decryptedContent, setDecryptedContent] = useState("");
   const [accessGranted, setAccessGranted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,45 +46,21 @@ const App = () => {
     initLit();
   }, []);
 
-  // Connect wallet with web3modal
-  const connectWallet = async () => {
-    try {
-      const web3Modal = new Web3Modal({
-        cacheProvider: true,
-      });
-      const instance = await web3Modal.connect();
-      const web3Provider = new ethers.BrowserProvider(instance);
-      const signer = await web3Provider.getSigner();
-      const userAddress = await signer.getAddress();
-      setProvider(web3Provider);
-      setAddress(userAddress);
-      setAccessGranted(false);
-      setDecryptedContent("");
-      setEncryptedContent(null);
-    } catch (e) {
-      console.error("Wallet connection failed", e);
-    }
-  };
-
-  // Example: encrypted content (normally you'd fetch encrypted content)
-  const exampleEncryptedString = `
-  -----BEGIN LIT ENCRYPTED FILE-----
-  version: 2.0
-  type: string
-  encryptedString: <encrypted-data-here>
-  accessControlConditions:
-  - contractAddress: ${GATED_TOKEN_CONTRACT}
-    standardContractType: ERC721
-    chain: ethereum
-    method: balanceOf
-    parameters:
-    - ':userAddress'
-    returnValueTest:
-      comparator: '>'
-      value: '0'
-  encryptedSymmetricKey: <encrypted-key-here>
-  -----END LIT ENCRYPTED FILE-----
-  `;
+  // Listen for wallet connection changes using wagmi (simplified)
+  useEffect(() => {
+    const setupProvider = async () => {
+      if (window.ethereum) {
+        const ethProvider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await ethProvider.getSigner();
+        const userAddress = await signer.getAddress();
+        setProvider(ethProvider);
+        setAddress(userAddress);
+        setAccessGranted(false);
+        setDecryptedContent("");
+      }
+    };
+    setupProvider();
+  }, []);
 
   // Decrypt content using Lit and wallet signature
   const decryptContent = async () => {
@@ -87,21 +83,14 @@ const App = () => {
         },
       ];
 
-      // The encrypted string would be your actual encrypted blog post string,
-      // here we simulate by encrypting a simple message on the fly.
-      // For demo, encrypt a sample string now and decrypt immediately.
-
       const authSig = await LitJsSdk.checkAndSignAuthMessage({ chain: "ethereum" });
 
-      // Encrypt a sample string (normally done ahead of time)
+      // Sample content to encrypt & decrypt
       const sampleContent = "This is the secret gated blog post content that only token holders can see!";
+
+      // Encrypt sample content (simulate fetching encrypted data)
       const encryptedString = await LitJsSdk.encryptString(sampleContent);
       const encryptedBase64 = await LitJsSdk.blobToBase64String(encryptedString);
-
-      // Save the encrypted content to state (simulating loading from backend)
-      setEncryptedContent(encryptedBase64);
-
-      // Now decrypt
       const encryptedBlob = await LitJsSdk.base64StringToBlob(encryptedBase64);
 
       // Get symmetric key from Lit network
@@ -126,26 +115,32 @@ const App = () => {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "auto", padding: 20, fontFamily: "Arial, sans-serif" }}>
-      <h1>Lit Token-Gated Blog Demo</h1>
-      {!address ? (
-        <button onClick={connectWallet}>Connect Wallet</button>
-      ) : (
-        <>
-          <p>Connected wallet: {address}</p>
-          <button onClick={decryptContent} disabled={loading}>
-            {loading ? "Checking Access..." : "View Gated Post"}
-          </button>
-        </>
-      )}
+    <WagmiConfig client={wagmiClient}>
+      <div style={{ maxWidth: 600, margin: "auto", padding: 20, fontFamily: "Arial, sans-serif" }}>
+        <h1>Lit Token-Gated Blog Demo</h1>
 
-      {accessGranted && (
-        <div style={{ marginTop: 20, padding: 15, border: "1px solid #ccc", borderRadius: 6 }}>
-          <h2>Gated Blog Post</h2>
-          <p>{decryptedContent}</p>
-        </div>
-      )}
-    </div>
+        {!address ? (
+          <button onClick={() => ethereumClient.openModal()}>Connect Wallet</button>
+        ) : (
+          <>
+            <p>Connected wallet: {address}</p>
+            <button onClick={decryptContent} disabled={loading}>
+              {loading ? "Checking Access..." : "View Gated Post"}
+            </button>
+          </>
+        )}
+
+        {accessGranted && (
+          <div style={{ marginTop: 20, padding: 15, border: "1px solid #ccc", borderRadius: 6 }}>
+            <h2>Gated Blog Post</h2>
+            <p>{decryptedContent}</p>
+          </div>
+        )}
+
+        {/* Web3Modal React component */}
+        <Web3Modal projectId={projectId} ethereumClient={ethereumClient} />
+      </div>
+    </WagmiConfig>
   );
 };
 
